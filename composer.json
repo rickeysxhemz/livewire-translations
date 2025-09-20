@@ -1,0 +1,41 @@
+{
+    "name": "sxhemz/livewire-translations",
+    "description": "Flexible Conventional Database Translation using Laravel and Livewire",
+    "version": "1.0.0",
+    "type": "library",
+    "require": {
+        "php": "^8.4",
+        "laravel/framework": "^v12.28.1",
+        "livewire/livewire": "^3.6.4",
+        "illuminate/console": "^12.28",
+        "illuminate/database": "^12.28",
+        "illuminate/support": "^12.28"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.6",
+        "phpunit/phpunit": "^12.3",
+        "pestphp/pest": "^4.1"
+    },
+    "license": "GPL-3.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "LivewireTranslations\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LivewireTranslations\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "waqas majeed",
+            "email": "waqasmajeed.25@gmail.com"
+        }
+    ],
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}

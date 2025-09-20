@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{namespace}};
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class {{translationModelName}} extends Model
+{
+    protected $table = '{{tableName}}';
+
+    protected $fillable = [
+        {{fillableFields}}
+    ];
+
+    public function {{modelName}}(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\{{modelName}}::class, '{{foreignKey}}');
+    }
+}

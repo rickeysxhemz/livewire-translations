@@ -1,0 +1,61 @@
+# Dependencies
+/vendor/
+composer.phar
+
+# Laravel specific
+.env
+.env.*
+!.env.example
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Testing
+.phpunit.result.cache
+coverage/
+.coverage/
+phpunit.xml.bak
+.pest/
+
+# Build and distribution
+/build/
+/dist/
+*.log
+*.cache
+
+# PHP specific
+*.php~
+*.tmp
+*.temp
+
+# Node.js (if you add frontend build tools later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn-integrity
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+
+# Local configuration
+.local
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
