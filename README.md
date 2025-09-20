@@ -583,6 +583,23 @@ This package is open-sourced software licensed under the [GPL-3.0-or-later](LICE
 - **Discussions**: [GitHub Discussions](https://github.com/sxhemz/livewire-translations/discussions)
 - **Documentation**: [Wiki](https://github.com/sxhemz/livewire-translations/wiki)
 
+## 📋 Version Information
+
+### Current Status
+- **Latest Stable**: v1.0.0
+- **Development Branch**: main
+- **Minimum PHP**: 8.4+
+- **Laravel Compatibility**: 12.28+
+
+### Release Notes
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and breaking changes.
+
+### Semantic Versioning
+This package follows [Semantic Versioning](https://semver.org/). For production applications, we recommend:
+- Use exact versions for critical applications: `"sxhemz/livewire-translations": "1.0.0"`
+- Use caret constraints for regular use: `"sxhemz/livewire-translations": "^1.0"`
+- Never use development versions in production: `dev-main`
+
 ## 🔮 Roadmap
 
 - [ ] Integration with Laravel Filament
