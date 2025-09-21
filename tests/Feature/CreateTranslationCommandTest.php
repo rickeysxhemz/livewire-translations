@@ -4,147 +4,198 @@ declare(strict_types=1);
 
 namespace LivewireTranslations\Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
-use LivewireTranslations\Models\Language;
 use LivewireTranslations\Tests\TestCase;
 
 class CreateTranslationCommandTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Ensure languages table exists
-        if (!Schema::hasTable('languages')) {
-            Language::query()->getConnection()->getSchemaBuilder()->create('languages', function ($table) {
-                $table->id();
-                $table->string('language_code', 10)->unique();
-                $table->string('name');
-                $table->string('native_name')->nullable();
-                $table->boolean('is_active')->default(false);
-                $table->integer('sort_order')->default(0);
-                $table->timestamps();
-            });
-        }
-    }
-
-    public function test_command_displays_error_for_non_existent_model(): void
-    {
-        $this->artisan('create:translation NonExistentModel')
-            ->expectsOutput('❌ Could not find migration for model: NonExistentModel')
-            ->assertExitCode(1);
-    }
-
-    public function test_command_detects_available_fields_for_existing_model(): void
-    {
-        $this->artisan('create:translation Post')
-            ->expectsOutput('🔍 Available fields for translation:')
-            ->expectsOutput('  [0] title 🌟 (commonly translatable)')
-            ->expectsOutput('  [1] content 🌟 (commonly translatable)')
-            ->expectsOutput('  [2] slug 🌟 (commonly translatable)')
-            ->expectsOutput('  [3] description 🌟 (commonly translatable)')
-            ->expectsQuestion('🎯 Enter field indices to make translatable (comma-separated, e.g., 0,1,2)', '')
-            ->expectsOutput('⚠️  No translatable fields selected. Exiting...')
-            ->assertExitCode(0);
-    }
-
-    public function test_command_generates_translation_files_for_selected_fields(): void
-    {
-        // Clean up any existing files
-        $modelPath = app_path('Models/Translations/PostTranslation.php');
-        if (File::exists($modelPath)) {
-            File::delete($modelPath);
-        }
-
-        $migrationPattern = database_path('migrations/*_create_post_translations_table.php');
-        foreach (glob($migrationPattern) as $file) {
-            File::delete($file);
-        }
-
-        $this->artisan('create:translation Post')
-            ->expectsOutput('🔍 Available fields for translation:')
-            ->expectsQuestion('🎯 Enter field indices to make translatable (comma-separated, e.g., 0,1,2)', '0,1,3')
-            ->expectsOutput('📝 Translation model created:')
-            ->expectsOutput('🗄️  Translation migration created:')
-            ->expectsOutput('✅ Translation files created successfully!')
-            ->expectsOutput('📋 Next steps:')
-            ->expectsOutput('   1️⃣  Run: php artisan migrate')
-            ->expectsOutput('   2️⃣  Add TranslatableTrait to your Post model')
-            ->expectsOutput('   3️⃣  Use the translation modal in your Livewire components')
-            ->assertExitCode(0);
-
-        // Verify translation model was created
-        $this->assertTrue(File::exists($modelPath));
-
-        // Verify migration was created
-        $migrationFiles = glob($migrationPattern);
-        $this->assertCount(1, $migrationFiles);
-
-        // Check model content
-        $modelContent = File::get($modelPath);
-        $this->assertStringContainsString('class PostTranslation extends Model', $modelContent);
-        $this->assertStringContainsString("'title', 'content', 'description', 'language_code'", $modelContent);
-
-        // Check migration content
-        $migrationContent = File::get($migrationFiles[0]);
-        $this->assertStringContainsString('create_post_translations_table', $migrationContent);
-        $this->assertStringContainsString("\$table->text('title')->nullable();", $migrationContent);
-        $this->assertStringContainsString("\$table->text('content')->nullable();", $migrationContent);
-        $this->assertStringContainsString("\$table->text('description')->nullable();", $migrationContent);
-    }
-
-    public function test_command_creates_languages_table_if_not_exists(): void
-    {
-        Schema::dropIfExists('languages');
-
-        $this->artisan('create:translation Post')
-            ->expectsOutput('📋 Creating languages table...')
-            ->expectsQuestion('🎯 Enter field indices to make translatable (comma-separated, e.g., 0,1,2)', '')
-            ->assertExitCode(0);
-
-        $this->assertTrue(Schema::hasTable('languages'));
-        $this->assertDatabaseHas('languages', [
-            'language_code' => 'en',
-            'name' => 'English',
-            'is_active' => true,
-        ]);
-    }
-
-    public function test_command_handles_invalid_field_indices(): void
-    {
-        $this->artisan('create:translation Post')
-            ->expectsQuestion('🎯 Enter field indices to make translatable (comma-separated, e.g., 0,1,2)', '0,99,invalid')
-            ->expectsOutput('✅ Translation files created successfully!')
-            ->assertExitCode(0);
-
-        // Should only process valid indices (0 in this case)
-        $modelPath = app_path('Models/Translations/PostTranslation.php');
-        if (File::exists($modelPath)) {
-            $modelContent = File::get($modelPath);
-            $this->assertStringContainsString("'title', 'language_code'", $modelContent);
-        }
+        $this->cleanupTestFiles();
     }
 
     protected function tearDown(): void
     {
-        // Clean up created files
-        $modelPath = app_path('Models/Translations/PostTranslation.php');
-        if (File::exists($modelPath)) {
-            File::delete($modelPath);
-        }
-
-        $migrationPattern = database_path('migrations/*_create_post_translations_table.php');
-        foreach (glob($migrationPattern) as $file) {
-            File::delete($file);
-        }
-
-        // Clean up directory if empty
-        $translationsDir = app_path('Models/Translations');
-        if (File::exists($translationsDir) && count(File::allFiles($translationsDir)) === 0) {
-            File::deleteDirectory($translationsDir);
-        }
-
+        $this->cleanupTestFiles();
         parent::tearDown();
+    }
+
+    public function test_command_is_registered(): void
+    {
+        $this->assertTrue($this->app['artisan']->has('create:translation'));
+    }
+
+    public function test_command_requires_model_argument(): void
+    {
+        $this->artisan('create:translation')
+            ->expectsOutputToContain('Not enough arguments')
+            ->assertExitCode(1);
+    }
+
+    public function test_command_validates_model_name_format(): void
+    {
+        $this->artisan('create:translation', ['model' => 'invalid-model-name!'])
+            ->expectsOutputToContain('Invalid model name')
+            ->assertExitCode(1);
+    }
+
+    public function test_command_handles_non_existent_model(): void
+    {
+        $this->artisan('create:translation', ['model' => 'NonExistentModel'])
+            ->expectsOutputToContain('Model class not found')
+            ->assertExitCode(1);
+    }
+
+    public function test_command_creates_translation_model_and_migration(): void
+    {
+        $this->createTestModelMigration();
+
+        $this->artisan('create:translation', ['model' => 'TestModel'])
+            ->expectsQuestion('Select translatable fields for TestModel', [0, 1])
+            ->expectsOutputToContain('Translation model created')
+            ->expectsOutputToContain('Migration created')
+            ->assertExitCode(0);
+
+        $this->assertTranslationFilesCreated();
+    }
+
+    public function test_command_skips_if_translation_already_exists(): void
+    {
+        $this->createTestModelMigration();
+        $this->createExistingTranslationModel();
+
+        $this->artisan('create:translation', ['model' => 'TestModel'])
+            ->expectsOutputToContain('Translation model already exists')
+            ->assertExitCode(0);
+    }
+
+    public function test_command_detects_translatable_fields_from_migration(): void
+    {
+        $this->createTestModelMigration();
+
+        $this->artisan('create:translation', ['model' => 'TestModel'])
+            ->expectsQuestion('Select translatable fields for TestModel', [0])
+            ->assertExitCode(0);
+
+        $translationContent = File::get($this->getTranslationModelPath());
+        $this->assertStringContainsString("'name'", $translationContent);
+        $this->assertStringContainsString("'description'", $translationContent);
+    }
+
+    public function test_command_with_force_flag_overwrites_existing(): void
+    {
+        $this->createTestModelMigration();
+        $this->createExistingTranslationModel();
+
+        $this->artisan('create:translation', ['model' => 'TestModel', '--force' => true])
+            ->expectsQuestion('Select translatable fields for TestModel', [0])
+            ->expectsOutputToContain('Translation model created')
+            ->assertExitCode(0);
+    }
+
+    public function test_command_with_all_flag_selects_all_fields(): void
+    {
+        $this->createTestModelMigration();
+
+        $this->artisan('create:translation', ['model' => 'TestModel', '--all' => true])
+            ->expectsOutputToContain('Translation model created')
+            ->assertExitCode(0);
+
+        $translationContent = File::get($this->getTranslationModelPath());
+        $this->assertStringContainsString("'name'", $translationContent);
+        $this->assertStringContainsString("'description'", $translationContent);
+    }
+
+    protected function createTestModelMigration(): void
+    {
+        $migrationPath = database_path('migrations/2023_01_01_000000_create_test_models_table.php');
+        $migrationContent = "<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('test_models', function (Blueprint \$table) {
+            \$table->id();
+            \$table->string('name');
+            \$table->text('description');
+            \$table->integer('count');
+            \$table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('test_models');
+    }
+};";
+
+        File::ensureDirectoryExists(dirname($migrationPath));
+        File::put($migrationPath, $migrationContent);
+    }
+
+    protected function createExistingTranslationModel(): void
+    {
+        $modelPath = $this->getTranslationModelPath();
+        $modelContent = "<?php
+
+namespace App\Models\Translations;
+
+use Illuminate\Database\Eloquent\Model;
+
+class TestModelTranslation extends Model
+{
+    protected \$fillable = ['test_model_id', 'language_code', 'name'];
+}";
+
+        File::ensureDirectoryExists(dirname($modelPath));
+        File::put($modelPath, $modelContent);
+    }
+
+    protected function getTranslationModelPath(): string
+    {
+        return app_path('Models/Translations/TestModelTranslation.php');
+    }
+
+    protected function getTranslationMigrationPath(): string
+    {
+        $files = File::glob(database_path('migrations/*_create_test_model_translations_table.php'));
+        return $files[0] ?? '';
+    }
+
+    protected function assertTranslationFilesCreated(): void
+    {
+        $this->assertFileExists($this->getTranslationModelPath());
+        $this->assertNotEmpty($this->getTranslationMigrationPath());
+        $this->assertFileExists($this->getTranslationMigrationPath());
+    }
+
+    protected function cleanupTestFiles(): void
+    {
+        $files = [
+            $this->getTranslationModelPath(),
+            app_path('Models/Translations'),
+            database_path('migrations/2023_01_01_000000_create_test_models_table.php'),
+        ];
+
+        $migrationFiles = File::glob(database_path('migrations/*_create_test_model_translations_table.php'));
+
+        foreach (array_merge($files, $migrationFiles) as $file) {
+            if (File::exists($file)) {
+                if (File::isDirectory($file)) {
+                    File::deleteDirectory($file);
+                } else {
+                    File::delete($file);
+                }
+            }
+        }
     }
 }

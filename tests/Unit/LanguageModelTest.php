@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace LivewireTranslations\Tests\Unit;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use LivewireTranslations\Models\Language;
 use LivewireTranslations\Tests\TestCase;
 
 class LanguageModelTest extends TestCase
 {
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+    }
     public function test_language_can_be_created(): void
     {
         $language = Language::create([

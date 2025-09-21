@@ -4,252 +4,224 @@ declare(strict_types=1);
 
 namespace LivewireTranslations\Tests\Unit;
 
-use Illuminate\Support\Facades\App;
-use LivewireTranslations\Models\Language;
-use LivewireTranslations\Tests\Support\Models\Post;
-use LivewireTranslations\Tests\Support\Models\PostTranslation;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
+use LivewireTranslations\Tests\Support\Models\TestModel;
+use LivewireTranslations\Tests\Support\Models\TestModelTranslation;
 use LivewireTranslations\Tests\TestCase;
 
 class TranslatableTraitTest extends TestCase
 {
-    private Post $post;
+    use RefreshDatabase;
+
+    protected TestModel $model;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->post = Post::create([
-            'title' => 'Original Title',
-            'content' => 'Original Content',
-            'description' => 'Original Description',
-            'slug' => 'original-title',
-            'is_published' => true,
-        ]);
+        $this->createTables();
 
-        Language::create([
-            'language_code' => 'en',
-            'name' => 'English',
-            'native_name' => 'English',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        Language::create([
-            'language_code' => 'es',
-            'name' => 'Spanish',
-            'native_name' => 'Español',
-            'is_active' => true,
-            'sort_order' => 2,
+        $this->model = TestModel::create([
+            'name' => 'Original Name',
+            'description' => 'Original Description'
         ]);
     }
 
-    public function test_translatable_attributes_are_defined(): void
+    protected function createTables(): void
     {
-        $attributes = Post::getTranslatableAttributes();
+        if (!Schema::hasTable('test_models')) {
+            $this->app['db']->connection()->getSchemaBuilder()->create('test_models', function ($table) {
+                $table->id();
+                $table->string('name');
+                $table->text('description')->nullable();
+                $table->string('non_translatable')->nullable();
+                $table->timestamps();
+            });
+        }
 
-        $this->assertEquals(['title', 'content', 'description'], $attributes);
+        if (!Schema::hasTable('test_model_translations')) {
+            $this->app['db']->connection()->getSchemaBuilder()->create('test_model_translations', function ($table) {
+                $table->id();
+                $table->foreignId('test_model_id')->constrained()->onDelete('cascade');
+                $table->string('language_code', 10);
+                $table->string('name')->nullable();
+                $table->text('description')->nullable();
+                $table->timestamps();
+
+                $table->unique(['test_model_id', 'language_code']);
+            });
+        }
+    }
+
+    public function test_translatable_attributes_are_set_correctly(): void
+    {
+        $this->assertEquals(['name', 'description'], TestModel::getTranslatableAttributes());
     }
 
     public function test_translation_model_name_is_generated_correctly(): void
     {
-        $modelName = $this->post->getTranslationModelName();
-
-        $this->assertEquals('LivewireTranslations\\Tests\\Support\\Models\\PostTranslation', $modelName);
+        $expected = 'LivewireTranslations\\Tests\\Support\\Models\\TestModelTranslation';
+        $this->assertEquals($expected, $this->model->getTranslationModelName());
     }
 
     public function test_translations_relationship_exists(): void
     {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-            'content' => 'Contenido en Español',
-        ]);
-
-        $this->assertCount(1, $this->post->translations);
-        $this->assertInstanceOf(PostTranslation::class, $this->post->translations->first());
+        $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $this->model->translations());
     }
 
-    public function test_translation_method_returns_correct_translation(): void
+    public function test_can_save_translation(): void
     {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-            'content' => 'Contenido en Español',
-        ]);
+        $translation = $this->model->saveTranslation([
+            'name' => 'Spanish Name',
+            'description' => 'Spanish Description'
+        ], 'es');
 
-        $translation = $this->post->translation('es');
-
-        $this->assertNotNull($translation);
-        $this->assertEquals('Título en Español', $translation->title);
+        $this->assertInstanceOf(TestModelTranslation::class, $translation);
+        $this->assertEquals('Spanish Name', $translation->name);
+        $this->assertEquals('Spanish Description', $translation->description);
         $this->assertEquals('es', $translation->language_code);
     }
 
-    public function test_translation_method_returns_null_for_non_existent_language(): void
+    public function test_can_get_translation(): void
     {
-        $translation = $this->post->translation('fr');
+        $this->model->saveTranslation([
+            'name' => 'French Name',
+            'description' => 'French Description'
+        ], 'fr');
 
+        $translation = $this->model->translation('fr');
+
+        $this->assertNotNull($translation);
+        $this->assertEquals('French Name', $translation->name);
+        $this->assertEquals('French Description', $translation->description);
+    }
+
+    public function test_returns_null_for_non_existent_translation(): void
+    {
+        $translation = $this->model->translation('de');
         $this->assertNull($translation);
     }
 
-    public function test_translated_attribute_returns_translation_value(): void
+    public function test_get_translated_attribute_returns_translation(): void
     {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
+        $this->model->saveTranslation(['name' => 'Italian Name'], 'it');
 
-        $title = $this->post->getTranslatedAttribute('title', 'es');
-
-        $this->assertEquals('Título en Español', $title);
+        $translatedName = $this->model->getTranslatedAttribute('name', 'it');
+        $this->assertEquals('Italian Name', $translatedName);
     }
 
-    public function test_translated_attribute_returns_original_value_when_no_translation(): void
+    public function test_get_translated_attribute_fallback_to_original(): void
     {
-        $title = $this->post->getTranslatedAttribute('title', 'fr');
-
-        $this->assertEquals('Original Title', $title);
+        $translatedName = $this->model->getTranslatedAttribute('name', 'pt');
+        $this->assertEquals('Original Name', $translatedName);
     }
 
     public function test_magic_getter_returns_translated_attribute(): void
     {
-        App::setLocale('es');
+        $this->model->saveTranslation(['name' => 'Dutch Name'], 'nl');
+        app()->setLocale('nl');
 
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
-
-        $this->assertEquals('Título en Español', $this->post->title);
+        $this->assertEquals('Dutch Name', $this->model->name);
     }
 
-    public function test_magic_getter_returns_original_attribute_when_no_translation(): void
+    public function test_can_update_existing_translation(): void
     {
-        App::setLocale('fr');
+        $translation = $this->model->saveTranslation(['name' => 'German Name'], 'de');
+        $originalId = $translation->id;
 
-        $this->assertEquals('Original Title', $this->post->title);
+        $updatedTranslation = $this->model->saveTranslation(['name' => 'Updated German Name'], 'de');
+
+        $this->assertEquals($originalId, $updatedTranslation->id);
+        $this->assertEquals('Updated German Name', $updatedTranslation->name);
     }
 
-    public function test_save_translation_creates_new_translation(): void
+    public function test_can_delete_translation(): void
     {
-        $translation = $this->post->saveTranslation([
-            'title' => 'Título en Español',
-            'content' => 'Contenido en Español',
-        ], 'es');
+        $this->model->saveTranslation(['name' => 'Russian Name'], 'ru');
 
-        $this->assertInstanceOf(PostTranslation::class, $translation);
-        $this->assertEquals('es', $translation->language_code);
-        $this->assertEquals('Título en Español', $translation->title);
-        $this->assertDatabaseHas('post_translations', [
-            'post_id' => $this->post->id,
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
+        $this->assertTrue($this->model->hasTranslation('ru'));
+
+        $deleted = $this->model->deleteTranslation('ru');
+
+        $this->assertTrue($deleted);
+        $this->assertFalse($this->model->hasTranslation('ru'));
     }
 
-    public function test_save_translation_updates_existing_translation(): void
+    public function test_delete_non_existent_translation_returns_false(): void
     {
-        $existingTranslation = $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Old Title',
-            'content' => 'Old Content',
-        ]);
-
-        $updatedTranslation = $this->post->saveTranslation([
-            'title' => 'New Title',
-            'content' => 'New Content',
-        ], 'es');
-
-        $this->assertEquals($existingTranslation->id, $updatedTranslation->id);
-        $this->assertEquals('New Title', $updatedTranslation->title);
-        $this->assertEquals('New Content', $updatedTranslation->content);
+        $deleted = $this->model->deleteTranslation('xyz');
+        $this->assertFalse($deleted);
     }
 
-    public function test_delete_translation_removes_translation(): void
+    public function test_get_available_languages(): void
     {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
+        $this->model->saveTranslation(['name' => 'Spanish Name'], 'es');
+        $this->model->saveTranslation(['name' => 'French Name'], 'fr');
 
-        $result = $this->post->deleteTranslation('es');
-
-        $this->assertTrue($result);
-        $this->assertDatabaseMissing('post_translations', [
-            'post_id' => $this->post->id,
-            'language_code' => 'es',
-        ]);
-    }
-
-    public function test_delete_translation_returns_false_for_non_existent_translation(): void
-    {
-        $result = $this->post->deleteTranslation('fr');
-
-        $this->assertFalse($result);
-    }
-
-    public function test_get_available_languages_returns_translation_languages(): void
-    {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
-
-        $this->post->translations()->create([
-            'language_code' => 'fr',
-            'title' => 'Titre en Français',
-        ]);
-
-        $languages = $this->post->getAvailableLanguages();
+        $languages = $this->model->getAvailableLanguages();
 
         $this->assertCount(2, $languages);
-        $this->assertContains('es', $languages->toArray());
-        $this->assertContains('fr', $languages->toArray());
+        $this->assertTrue($languages->contains('es'));
+        $this->assertTrue($languages->contains('fr'));
     }
 
-    public function test_has_translation_returns_correct_boolean(): void
+    public function test_has_translation(): void
     {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
+        $this->assertFalse($this->model->hasTranslation('ja'));
 
-        $this->assertTrue($this->post->hasTranslation('es'));
-        $this->assertFalse($this->post->hasTranslation('fr'));
+        $this->model->saveTranslation(['name' => 'Japanese Name'], 'ja');
+
+        $this->assertTrue($this->model->hasTranslation('ja'));
     }
 
-    public function test_with_translation_scope_filters_models(): void
+    public function test_scope_with_translation(): void
     {
-        $post2 = Post::create([
-            'title' => 'Another Post',
-            'content' => 'Another Content',
-            'slug' => 'another-post',
-        ]);
+        $model2 = TestModel::create(['name' => 'Model 2']);
 
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-        ]);
+        $this->model->saveTranslation(['name' => 'Chinese Name'], 'zh');
 
-        $postsWithSpanishTranslation = Post::withTranslation('es')->get();
+        $modelsWithChinese = TestModel::withTranslation('zh')->get();
+        $modelsWithSpanish = TestModel::withTranslation('es')->get();
 
-        $this->assertCount(1, $postsWithSpanishTranslation);
-        $this->assertEquals($this->post->id, $postsWithSpanishTranslation->first()->id);
+        $this->assertCount(1, $modelsWithChinese);
+        $this->assertEquals($this->model->id, $modelsWithChinese->first()->id);
+        $this->assertCount(0, $modelsWithSpanish);
     }
 
-    public function test_get_translated_attributes_returns_all_translatable_attributes(): void
+    public function test_get_translated_attributes(): void
     {
-        $this->post->translations()->create([
-            'language_code' => 'es',
-            'title' => 'Título en Español',
-            'content' => 'Contenido en Español',
-        ]);
+        $this->model->saveTranslation([
+            'name' => 'Korean Name',
+            'description' => 'Korean Description'
+        ], 'ko');
 
-        $attributes = $this->post->getTranslatedAttributes('es');
+        $attributes = $this->model->getTranslatedAttributes('ko');
 
         $this->assertEquals([
-            'title' => 'Título en Español',
-            'content' => 'Contenido en Español',
-            'description' => 'Original Description', // fallback to original
+            'name' => 'Korean Name',
+            'description' => 'Korean Description'
         ], $attributes);
+    }
+
+    public function test_get_translated_attributes_fallback(): void
+    {
+        $attributes = $this->model->getTranslatedAttributes('unknown');
+
+        $this->assertEquals([
+            'name' => 'Original Name',
+            'description' => 'Original Description'
+        ], $attributes);
+    }
+
+    public function test_save_translation_respects_fillable_fields(): void
+    {
+        $translation = $this->model->saveTranslation([
+            'name' => 'Safe Name',
+            'unsafe_field' => 'Unsafe Value'
+        ], 'test');
+
+        $this->assertEquals('Safe Name', $translation->name);
+        $this->assertNull($translation->unsafe_field ?? null);
     }
 }

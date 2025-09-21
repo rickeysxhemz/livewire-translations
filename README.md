@@ -3,27 +3,27 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/sxhemz/livewire-translations.svg?style=flat-square)](https://packagist.org/packages/sxhemz/livewire-translations)
 [![Total Downloads](https://img.shields.io/packagist/dt/sxhemz/livewire-translations.svg?style=flat-square)](https://packagist.org/packages/sxhemz/livewire-translations)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/github/workflow/status/sxhemz/livewire-translations/Tests)](https://github.com/sxhemz/livewire-translations/actions)
 
-A flexible, secure, and high-performance Laravel package for managing database translations with Livewire integration. This package provides a conventional approach to handle multilingual content using Eloquent models and includes a beautiful Livewire modal component for translation management.
+A Laravel package for implementing database-driven translations with Livewire integration. Designed to provide a solid foundation for multilingual content management with a focus on developer experience and maintainable code.
 
-## ✨ Features
+## Core Features
 
-- 🚀 **Easy Integration**: Add translations to any Eloquent model with a simple trait
-- 🔒 **Security First**: Built-in protection against mass assignment, SQL injection, and unauthorized access
-- ⚡ **High Performance**: Optimized queries with eager loading and O(1) attribute lookups
-- 🎨 **Beautiful UI**: Livewire modal component with Tailwind CSS v4 styling
-- 🛠️ **Artisan Commands**: Generate translation models and migrations automatically
-- 🌍 **Language Management**: Complete API for managing languages with proper authorization
-- 📱 **Responsive Design**: Mobile-friendly translation interface
-- 🧪 **Well Tested**: Comprehensive test suite ensuring reliability
+- **Trait-Based Integration**: Add translation support to Eloquent models via `TranslatableTrait`
+- **Security Focused**: Built-in authentication gates, input validation, and mass assignment protection
+- **Performance Considerations**: Optimized queries with eager loading and efficient attribute lookups
+- **Developer Tools**: Code generation via Artisan commands and comprehensive test coverage
+- **Livewire Components**: Ready-to-use UI components with form validation
+- **RESTful API**: Clean API endpoints with proper authentication and rate limiting
 
-## 📋 Requirements
+## Technical Requirements
 
-- PHP 8.4+
-- Laravel 12.28+
-- Livewire 3.6+
+- **PHP**: 8.4+ (Required for modern language features and performance)
+- **Laravel**: 12.28+ (Leverages latest framework capabilities)
+- **Livewire**: 3.6+ (Essential for reactive UI components)
+- **Database**: MySQL 8.0+, PostgreSQL 13+, SQLite 3.35+
 
-## 📦 Installation
+## Installation & Setup
 
 Install the package via Composer:
 
@@ -31,21 +31,25 @@ Install the package via Composer:
 composer require sxhemz/livewire-translations
 ```
 
-### Publish Configuration
+### Publishing Package Assets
 
-Publish the configuration file:
-
-```bash
-php artisan vendor:publish --provider="LivewireTranslations\TranslationServiceProvider" --tag="config"
-```
-
-### Publish Views (Optional)
-
-If you want to customize the Livewire modal component:
+The package provides several publishable assets:
 
 ```bash
-php artisan vendor:publish --provider="LivewireTranslations\TranslationServiceProvider" --tag="views"
+# Publish configuration file
+php artisan vendor:publish --tag=livewire-translations-config
+
+# Publish views for customization
+php artisan vendor:publish --tag=livewire-translations-views
+
+# Publish migrations
+php artisan vendor:publish --tag=livewire-translations-migrations
+
+# Publish everything at once
+php artisan vendor:publish --provider="LivewireTranslations\TranslationServiceProvider"
 ```
+
+> **Note**: The publishing system has been fixed and now works correctly with proper console detection and specific tags.
 
 ## ⚙️ Configuration
 
@@ -86,11 +90,11 @@ return [
 ];
 ```
 
-## 🚀 Quick Start
+## Implementation Guide
 
-### 1. Create a Translatable Model
+### Model Integration
 
-Let's say you have a `Post` model that you want to make translatable:
+Implement database translations by adding the `TranslatableTrait` to your Eloquent models:
 
 ```php
 <?php
@@ -121,43 +125,40 @@ class Post extends Model
 }
 ```
 
-### 2. Generate Translation Files
+### Code Generation
 
-Use the Artisan command to generate translation model and migration:
+Generate translation models and migrations using the included Artisan command:
 
 ```bash
 php artisan create:translation Post
 ```
 
-This command will:
-- Analyze your `posts` table structure
-- Show available fields for translation
-- Generate `PostTranslation` model in `App\Models\Translations\`
-- Create a migration for the `post_translations` table
-- Set up proper relationships and indexes
-
-### 3. Run Migration
+**Command Features:**
+- Analyzes existing table schema and detects translatable columns
+- Generates typed translation model with proper relationships
+- Creates migration with optimized indexes and foreign key constraints
+- Supports interactive field selection and batch processing
 
 ```bash
 php artisan migrate
 ```
 
-### 4. Add Authorization (Important!)
+### Security Configuration
 
-Define the `manage-translations` gate in your `AuthServiceProvider`:
+Configure authorization gates for translation management:
 
 ```php
 use Illuminate\Support\Facades\Gate;
 
-public function boot()
+public function boot(): void
 {
-    Gate::define('manage-translations', function ($user) {
+    Gate::define('manage-translations', function (User $user): bool {
         return $user->hasRole('admin') || $user->hasPermission('manage-translations');
     });
 }
 ```
 
-## 📚 Usage Guide
+## Programming Interface
 
 ### Basic Translation Operations
 
@@ -334,25 +335,82 @@ API endpoints are rate-limited to 60 requests per minute by default.
 
 ## 🧪 Testing
 
-Run the package tests:
+The package includes a comprehensive test suite with **74 test methods** covering all functionality.
+
+### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests with PHPUnit
 vendor/bin/phpunit
 
+# Run tests with Pest (preferred)
+vendor/bin/pest
+
 # Run specific test suites
-vendor/bin/phpunit tests/Unit/
-vendor/bin/phpunit tests/Feature/
+vendor/bin/pest tests/Unit/
+vendor/bin/pest tests/Feature/
+
+# Run specific test files
+vendor/bin/pest tests/Unit/TranslatableTraitTest.php
+vendor/bin/pest tests/Feature/TranslationModalTest.php
 ```
+
+### Test Coverage
+
+Our test suite includes:
+
+#### **Unit Tests**
+- **TranslatableTraitTest** (18 tests) - Core translation functionality
+- **LanguageManagerTest** (10 tests) - Language management operations
+- **LanguageModelTest** (5 tests) - Language model behavior
+- **TranslationServiceProviderTest** (9 tests) - Service provider registration
+
+#### **Feature Tests**
+- **CreateTranslationCommandTest** (9 tests) - Artisan command functionality
+- **TranslationModalTest** (13 tests) - Livewire component behavior
+- **TranslationServiceProviderTest** (10 tests) - Integration testing
+
+### Key Test Areas
+
+✅ **Database Operations**
+- Translation CRUD operations
+- Model relationships and scopes
+- Query optimization and eager loading
+
+✅ **Security Testing**
+- Mass assignment protection
+- Input validation and sanitization
+- Authorization and permission checks
+
+✅ **UI Component Testing**
+- Livewire modal functionality
+- Form validation and error handling
+- Event dispatching and listening
+
+✅ **Command Line Tools**
+- Artisan command registration
+- File generation and migration creation
+- Interactive field selection
+
+✅ **Service Provider**
+- Package registration and discovery
+- Asset publishing (config, views, migrations)
+- Component and service binding
 
 ### Testing Your Implementation
 
 ```php
+<?php
+
 use App\Models\Post;
 use LivewireTranslations\Models\Language;
+use LivewireTranslations\Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PostTranslationTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_post_can_be_translated()
     {
         $post = Post::factory()->create([
@@ -367,9 +425,48 @@ class PostTranslationTest extends TestCase
 
         $this->assertEquals('Título en Español', $post->getTranslatedAttribute('title', 'es'));
         $this->assertTrue($post->hasTranslation('es'));
+        $this->assertDatabaseHas('post_translations', [
+            'post_id' => $post->id,
+            'language_code' => 'es',
+            'title' => 'Título en Español'
+        ]);
+    }
+
+    public function test_translation_fallback_to_original()
+    {
+        $post = Post::factory()->create([
+            'title' => 'Original Title'
+        ]);
+
+        // No translation exists for 'fr'
+        $this->assertEquals('Original Title', $post->getTranslatedAttribute('title', 'fr'));
+    }
+
+    public function test_livewire_translation_modal()
+    {
+        $post = Post::factory()->create();
+
+        Livewire::test(TranslationModal::class)
+            ->call('openModal', Post::class, $post->id, ['title', 'content'])
+            ->assertSet('isOpen', true)
+            ->assertSet('modelClass', Post::class)
+            ->set('translations.es.title', 'Spanish Title')
+            ->call('saveTranslations')
+            ->assertEmitted('translationsSaved');
+
+        $this->assertTrue($post->hasTranslation('es'));
     }
 }
 ```
+
+### Test Configuration
+
+The test suite uses:
+- **Orchestra Testbench** for Laravel package testing
+- **SQLite in-memory database** for fast, isolated tests
+- **RefreshDatabase** trait for clean test state
+- **Livewire testing utilities** for component tests
+- **Factory patterns** for consistent test data
 
 ## 🎯 Advanced Usage
 
@@ -499,7 +596,13 @@ $this->app->singleton(LanguageManager::class, CustomLanguageManager::class);
 - Check user permissions in your authorization logic
 - Verify API middleware configuration
 
-**3. Migration errors**
+**3. Publishing assets not working**
+- Use the specific tags: `--tag=livewire-translations-config`
+- Ensure you're running the command in console (not web)
+- Check Laravel version compatibility (12.28+)
+- Verify the package is properly installed via Composer
+
+**4. Migration errors**
 - Ensure the base model table exists before generating translations
 - Check for naming conflicts with existing tables
 - Verify database permissions
@@ -600,16 +703,38 @@ This package follows [Semantic Versioning](https://semver.org/). For production 
 - Use caret constraints for regular use: `"sxhemz/livewire-translations": "^1.0"`
 - Never use development versions in production: `dev-main`
 
-## 🔮 Roadmap
+## Project Status & Growth
 
-- [ ] Integration with Laravel Filament
-- [ ] REST API endpoints for frontend frameworks
-- [ ] Import/Export functionality for translations
-- [ ] Translation validation and approval workflow
-- [ ] Integration with translation services (Google Translate, DeepL)
-- [ ] Performance dashboard and analytics
-- [ ] Multi-tenant support
+This package is in active development and growing with each release. While it provides a solid foundation for Laravel translation management, we're continuously improving and expanding its capabilities based on community feedback and contributions.
+
+### Current Focus Areas
+- **Stability**: Ensuring reliable core functionality with comprehensive testing
+- **Documentation**: Improving examples and use case coverage
+- **Community**: Growing the contributor base and gathering feedback
+- **Performance**: Optimizing for various application scales and use cases
+
+### Roadmap
+
+- [ ] Enhanced Laravel Filament integration
+- [ ] Extended API capabilities for frontend frameworks
+- [ ] Import/Export functionality for translation workflows
+- [ ] Translation validation and approval processes
+- [ ] Integration with external translation services
+- [ ] Performance monitoring and optimization tools
+- [ ] Multi-tenant support for SaaS applications
+
+### Contributing to Growth
+
+This package has the potential to become a comprehensive translation solution for the Laravel ecosystem. We welcome contributions in the form of:
+
+- **Code improvements** and new features
+- **Documentation** enhancements and examples
+- **Testing** edge cases and real-world scenarios
+- **Performance** optimizations and benchmarking
+- **Community feedback** and feature requests
+
+Every contribution helps make this package more robust and useful for the entire Laravel community.
 
 ---
 
-Made with ❤️ for the Laravel community
+Built with care for the Laravel community

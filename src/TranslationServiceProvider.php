@@ -32,23 +32,29 @@ class TranslationServiceProvider extends ServiceProvider
 
     private function publishConfiguration(): void
     {
-        $this->publishes([
-            __DIR__.'/config/livewire-translations.php' => config_path('livewire-translations.php'),
-        ], 'config');
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/config/livewire-translations.php' => config_path('livewire-translations.php'),
+            ], 'livewire-translations-config');
+        }
     }
 
     private function publishViews(): void
     {
-        $this->publishes([
-            __DIR__.'/views' => resource_path('views/vendor/livewire-translations'),
-        ], 'views');
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/views' => resource_path('views/vendor/livewire-translations'),
+            ], 'livewire-translations-views');
+        }
     }
 
     private function publishMigrations(): void
     {
-        $this->publishes([
-            __DIR__.'/database/migrations' => database_path('migrations'),
-        ], 'migrations');
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/database/migrations' => database_path('migrations'),
+            ], 'livewire-translations-migrations');
+        }
     }
 
     private function loadViews(): void
